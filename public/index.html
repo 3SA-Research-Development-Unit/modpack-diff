@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modpack Diff Tool</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+    integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.js"
+    integrity="sha512-Xo0Jh8MsOn72LGV8kU5LsclG7SUzJsWGhXbWcYs2MAmChkQzwiW/yTQwdJ8w6UA9C6EVG18GHb/TrYpYCjyAQw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.css"
+    integrity="sha512-KXol4x3sVoO+8ZsWPFI/r5KBVB/ssCGB5tsv2nVOKwLg33wTFP3fmnXa47FdSVIshVTgsYk/1734xSk9aFIa4A=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+  <div class="ui container" style="margin-top: 40px">
+    <h2 class="ui header">Modpack Changelog Generator</h2>
+    <form class="ui form">
+      <div class="field">
+        <label>First HTML File</label>
+        <input type="file" id="file1" accept=".html" />
+      </div>
+      <div class="field">
+        <label>Second HTML File</label>
+        <input type="file" id="file2" accept=".html" />
+      </div>
+      <button class="ui button primary" type="button" id="analyzeBtn">
+        Analyze
+      </button>
+      <button class="ui button warning" type="button" id="processbtn">
+        Process
+      </button>
+      <div class="field">
+        <label>Changelog</label>
+        <textarea id="changelog" class="ui textarea" style="width: 100%; height: 200px"
+          placeholder="Changelog here."></textarea>
+      </div>
+    </form>
+  </div>
+  <script>
+    let ids1 = [];
+    let ids2 = [];
+
+    /**
+     * Extracts Steam IDs from a file using a regex pattern.
+     * @param {File} file - The file to extract Steam IDs from.
+     * @returns {Promise<string[]>} A promise that resolves to an array of extracted Steam IDs.
+     */
+    const extractSteamIDs = (file) => {
+      if (!file) return Promise.resolve([]);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const regex = /<a\s+href="https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=(\d+)"\s+data-type="Link">https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=\d+<\/a>/g;
+          const matches = [...e.target.result.matchAll(regex)];
+          resolve(matches.map((m) => m[1]));
+        };
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    };
+
+    /**
+     * Handles the "Analyze" button click event, extracts Steam IDs from files, and logs them.
+     * @async
+     */
+    const handleAnalyzeClick = async () => {
+      try {
+        const files = [
+          document.getElementById("file1").files[0],
+          document.getElementById("file2").files[0],
+        ];
+        [ids1, ids2] = await Promise.all(files.map(extractSteamIDs));
+        console.log("File 1 IDs:", ids1);
+        console.log("File 2 IDs:", ids2);
+      } catch (err) {
+        console.error("Error reading files:", err);
+      }
+    };
+
+    /**
+     * Sends mod IDs to the API and processes the response.
+     * @async
+     */
+    const sendToAPI = async () => {
+      try {
+        const response = await fetch("/steamapi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mods_1: ids1, mods_2: ids2 }),
+        });
+        const data = await response.json();
+        processResults(data);
+        console.log("API Response:", data);
+      } catch (err) {
+        console.error("API error:", err);
+      }
+    };
+
+    /**
+     * Formats a file size in bytes to a human-readable string.
+     * @param {string} byteString - The file size in bytes as a string.
+     * @returns {string} The formatted file size.
+     * @throws {Error} If the input is not a valid number.
+     */
+    function formatFileSize(byteString) {
+      const bytes = Number(byteString);
+      if (isNaN(bytes)) {
+        throw new Error("Invalid input: not a number");
+      }
+      if (bytes < 1024) return `${bytes} B`;
+      const kb = bytes / 1024;
+      if (kb < 1024) return `${kb.toFixed(2)} KB`;
+      const mb = kb / 1024;
+      if (mb < 1024) return `${mb.toFixed(2)} MB`;
+      const gb = mb / 1024;
+      return `${gb.toFixed(2)} GB`;
+    }
+
+    /**
+     * Processes the API response and generates a changelog.
+     * @param {Object} response - The API response containing mod details.
+     */
+    const processResults = (response) => {
+      const textarea = document.querySelector("#changelog");
+      textarea.value = "";
+      const modList1 = response.processed_mods1.response.publishedfiledetails;
+      const modList2 = response.processed_mods2.response.publishedfiledetails;
+      const removed = [];
+      const added = [];
+      const kept = [];
+
+      const ids1 = new Set(modList1.map((mod) => mod.publishedfileid));
+      const ids2 = new Set(modList2.map((mod) => mod.publishedfileid));
+
+      modList1.forEach((mod) => {
+        if (ids2.has(mod.publishedfileid)) {
+          kept.push(mod);
+        } else {
+          removed.push(mod);
+        }
+      });
+
+      modList2.forEach((mod) => {
+        if (!ids1.has(mod.publishedfileid)) {
+          added.push(mod);
+        }
+      });
+
+      const changelogLines = [
+        "# Modpack Update",
+        "",
+        "Hello everyone, Bluefield here. We are once again updating the modpacks!",
+        "",
+      ];
+
+      const MAX_TITLE_LENGTH = 56; // adjusted to align file sizes at column 60
+
+      const formatLine = (mod, prefix = "+") => {
+        const title = mod.title.length > MAX_TITLE_LENGTH ? mod.title.slice(0, MAX_TITLE_LENGTH - 3) + "..." : mod.title;
+        const paddedTitle = title.padEnd(MAX_TITLE_LENGTH, ".");
+        return `${prefix} ${paddedTitle} ${formatFileSize(mod.file_size)}`;
+      };
+
+      if (added.length) {
+        changelogLines.push("## Added Mods");
+        added.forEach((mod) => {
+          if (mod.title) {
+            changelogLines.push(formatLine(mod, "+"));
+          }
+        });
+      }
+
+      if (removed.length) {
+        changelogLines.push("", "## Removed Mods");
+        removed.forEach((mod) => {
+          if (mod.title) {
+            changelogLines.push(formatLine(mod, "-"));
+          }
+        });
+      }
+
+      const oldModpackSize = modList1.reduce((total, mod) => {
+        const size = Number(mod.file_size);
+        return isNaN(size) ? total : total + size;
+      }, 0);
+
+      const newModpackSize = modList2.reduce((total, mod) => {
+        const size = Number(mod.file_size);
+        return isNaN(size) ? total : total + size;
+      }, 0);
+
+      const sizeDifference = newModpackSize - oldModpackSize;
+      const sizeDifferenceSign = sizeDifference >= 0 ? 'increase' : 'decrease';
+      const absSizeDifference = Math.abs(sizeDifference);
+      const sortedMods = [...modList2].sort((a, b) => Number(b.file_size) - Number(a.file_size));
+      const topThreeMods = sortedMods.slice(0, 3);
+      const outputString = "The three biggest mods are... " +
+        topThreeMods.map((mod, index) =>
+          `${mod.title} with size ${formatFileSize(mod.file_size)}` + (index < 2 ? ', ' : '')
+        ).join(' ');
+
+
+      changelogLines.push(
+        "",
+        `The previous modpack was ${formatFileSize(oldModpackSize)} big, the new modpack is ${formatFileSize(newModpackSize)} big, it's an ${sizeDifferenceSign} of ${formatFileSize(absSizeDifference)}.`
+      );
+      changelogLines.push(outputString);
+      
+      textarea.value = changelogLines.join("\n");
+    };
+
+    // Attach event listeners
+    document.getElementById("analyzeBtn").addEventListener("click", handleAnalyzeClick);
+    document.getElementById("processbtn").addEventListener("click", sendToAPI);
+
+  </script>
+</body>
+
+</html>
