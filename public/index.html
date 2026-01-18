@@ -14,208 +14,454 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.css"
     integrity="sha512-KXol4x3sVoO+8ZsWPFI/r5KBVB/ssCGB5tsv2nVOKwLg33wTFP3fmnXa47FdSVIshVTgsYk/1734xSk9aFIa4A=="
     crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    .modpack-section {
+      margin-top: 30px;
+      padding: 20px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+    }
+
+    .file-list {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 3px;
+      min-height: 50px;
+    }
+
+    .file-item {
+      padding: 5px 10px;
+      background-color: #e8e8e8;
+      margin: 5px 0;
+      border-radius: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .remove-file {
+      cursor: pointer;
+      color: #d32f2f;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .remove-file:hover {
+      color: #f44336;
+    }
+
+    .results-section {
+      margin-top: 30px;
+      display: none;
+    }
+
+    .mod-comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .mod-list {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .mod-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mod-item:last-child {
+      border-bottom: none;
+    }
+
+    .mod-size {
+      color: #666;
+      font-size: 0.9em;
+      margin-left: 10px;
+    }
+
+    .stat-box {
+      background-color: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #2196F3;
+    }
+  </style>
 </head>
 
 <body>
   <div class="ui container" style="margin-top: 40px">
-    <h2 class="ui header">Modpack Changelog Generator</h2>
-    <form class="ui form">
-      <div class="field">
-        <label>First HTML File</label>
-        <input type="file" id="file1" accept=".html" />
+    <h2 class="ui header">Modpack Diff Tool - Multi File</h2>
+    
+    <div class="ui segment">
+      <h3>Before Modpacks</h3>
+      <p>Upload one or more HTML files for the "before" state</p>
+      <input type="file" id="beforeFileInput" accept=".html" multiple />
+      <div id="beforeFileList" class="file-list">
+        <em>No files selected</em>
       </div>
-      <div class="field">
-        <label>Second HTML File</label>
-        <input type="file" id="file2" accept=".html" />
+      <button class="ui button mini" type="button" id="addBeforeBtn">Add Files</button>
+    </div>
+
+    <div class="ui segment">
+      <h3>After Modpacks</h3>
+      <p>Upload one or more HTML files for the "after" state</p>
+      <input type="file" id="afterFileInput" accept=".html" multiple />
+      <div id="afterFileList" class="file-list">
+        <em>No files selected</em>
       </div>
-      <button class="ui button primary" type="button" id="analyzeBtn">
-        Analyze
+      <button class="ui button mini" type="button" id="addAfterBtn">Add Files</button>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <button class="ui button primary large" type="button" id="analyzeBtn">
+        Analyze Modpacks
       </button>
-      <button class="ui button warning" type="button" id="processbtn">
-        Process
+      <button class="ui button warning" type="button" id="clearBtn">
+        Clear All
       </button>
-      <div class="field">
-        <label>Changelog</label>
-        <textarea id="changelog" class="ui textarea" style="width: 100%; height: 200px"
-          placeholder="Changelog here."></textarea>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="results-section">
+      <h3>Analysis Results</h3>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+        <div class="stat-box">
+          <div>Before Modpack Mods</div>
+          <div class="stat-number" id="beforeCount">0</div>
+        </div>
+        <div class="stat-box">
+          <div>After Modpack Mods</div>
+          <div class="stat-number" id="afterCount">0</div>
+        </div>
       </div>
-    </form>
+
+      <div class="mod-comparison">
+        <div>
+          <h4>Before Mods (Not in After)</h4>
+          <div class="mod-list" id="removedModsList">
+            <em>Loading...</em>
+          </div>
+        </div>
+        <div>
+          <h4>After Mods (Not in Before)</h4>
+          <div class="mod-list" id="addedModsList">
+            <em>Loading...</em>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <h4>Summary</h4>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <button id="copyBtn" class="ui button mini">Copy Markdown</button>
+          <div style="font-size:0.9em; color:#666">Click to copy the generated Markdown changelog</div>
+        </div>
+        <textarea id="changelog" class="ui textarea" style="width: 100%; height: 250px"
+          placeholder="Summary will appear here..."></textarea>
+      </div>
+    </div>
   </div>
+
   <script>
-    let ids1 = [];
-    let ids2 = [];
+    let beforeFiles = [];
+    let afterFiles = [];
+    let beforeMods = [];
+    let afterMods = [];
 
-    /**
-     * Extracts Steam IDs from a file using a regex pattern.
-     * @param {File} file - The file to extract Steam IDs from.
-     * @returns {Promise<string[]>} A promise that resolves to an array of extracted Steam IDs.
-     */
-    const extractSteamIDs = (file) => {
-      if (!file) return Promise.resolve([]);
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const regex = /<a\s+href="https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=(\d+)"\s+data-type="Link">https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=\d+<\/a>/g;
-          const matches = [...e.target.result.matchAll(regex)];
-          resolve(matches.map((m) => m[1]));
-        };
-        reader.onerror = reject;
-        reader.readAsText(file);
-      });
+    const updateFileList = (fileListId, files) => {
+      const container = document.getElementById(fileListId);
+      if (files.length === 0) {
+        container.innerHTML = '<em>No files selected</em>';
+        return;
+      }
+      container.innerHTML = files
+        .map((file, idx) => `
+          <div class="file-item">
+            <span>${file.name}</span>
+            <span class="remove-file" onclick="removeFile('${fileListId}', ${idx})">✕</span>
+          </div>
+        `)
+        .join('');
     };
 
-    /**
-     * Handles the "Analyze" button click event, extracts Steam IDs from files, and logs them.
-     * @async
-     */
-    const handleAnalyzeClick = async () => {
-      try {
-        const files = [
-          document.getElementById("file1").files[0],
-          document.getElementById("file2").files[0],
-        ];
-        [ids1, ids2] = await Promise.all(files.map(extractSteamIDs));
-        console.log("File 1 IDs:", ids1);
-        console.log("File 2 IDs:", ids2);
-      } catch (err) {
-        console.error("Error reading files:", err);
+    window.removeFile = (fileListId, index) => {
+      if (fileListId === 'beforeFileList') {
+        beforeFiles.splice(index, 1);
+        updateFileList('beforeFileList', beforeFiles);
+      } else {
+        afterFiles.splice(index, 1);
+        updateFileList('afterFileList', afterFiles);
       }
     };
 
-    /**
-     * Sends mod IDs to the API and processes the response.
-     * @async
-     */
-    const sendToAPI = async () => {
-      try {
-        const response = await fetch("/steamapi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mods_1: ids1, mods_2: ids2 }),
-        });
-        const data = await response.json();
-        processResults(data);
-        console.log("API Response:", data);
-      } catch (err) {
-        console.error("API error:", err);
-      }
-    };
+    document.getElementById('addBeforeBtn').addEventListener('click', () => {
+      const input = document.getElementById('beforeFileInput');
+      const newFiles = Array.from(input.files);
+      beforeFiles = [...beforeFiles, ...newFiles];
+      updateFileList('beforeFileList', beforeFiles);
+      input.value = '';
+    });
 
-    /**
-     * Formats a file size in bytes to a human-readable string.
-     * @param {string} byteString - The file size in bytes as a string.
-     * @returns {string} The formatted file size.
-     * @throws {Error} If the input is not a valid number.
-     */
-    function formatFileSize(byteString) {
-      const bytes = Number(byteString);
-      if (isNaN(bytes)) {
-        throw new Error("Invalid input: not a number");
-      }
-      if (bytes < 1024) return `${bytes} B`;
-      const kb = bytes / 1024;
+    document.getElementById('addAfterBtn').addEventListener('click', () => {
+      const input = document.getElementById('afterFileInput');
+      const newFiles = Array.from(input.files);
+      afterFiles = [...afterFiles, ...newFiles];
+      updateFileList('afterFileList', afterFiles);
+      input.value = '';
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      beforeFiles = [];
+      afterFiles = [];
+      beforeMods = [];
+      afterMods = [];
+      updateFileList('beforeFileList', []);
+      updateFileList('afterFileList', []);
+      document.getElementById('resultsSection').style.display = 'none';
+      document.getElementById('beforeFileInput').value = '';
+      document.getElementById('afterFileInput').value = '';
+    });
+
+    const formatFileSize = (bytes) => {
+      if (!bytes) return '0 B';
+      const numBytes = Number(bytes);
+      if (isNaN(numBytes)) return '0 B';
+      if (numBytes < 1024) return `${numBytes} B`;
+      const kb = numBytes / 1024;
       if (kb < 1024) return `${kb.toFixed(2)} KB`;
       const mb = kb / 1024;
       if (mb < 1024) return `${mb.toFixed(2)} MB`;
       const gb = mb / 1024;
       return `${gb.toFixed(2)} GB`;
-    }
-
-    /**
-     * Processes the API response and generates a changelog.
-     * @param {Object} response - The API response containing mod details.
-     */
-    const processResults = (response) => {
-      const textarea = document.querySelector("#changelog");
-      textarea.value = "";
-      const modList1 = response.processed_mods1.response.publishedfiledetails;
-      const modList2 = response.processed_mods2.response.publishedfiledetails;
-      const removed = [];
-      const added = [];
-      const kept = [];
-
-      const ids1 = new Set(modList1.map((mod) => mod.publishedfileid));
-      const ids2 = new Set(modList2.map((mod) => mod.publishedfileid));
-
-      modList1.forEach((mod) => {
-        if (ids2.has(mod.publishedfileid)) {
-          kept.push(mod);
-        } else {
-          removed.push(mod);
-        }
-      });
-
-      modList2.forEach((mod) => {
-        if (!ids1.has(mod.publishedfileid)) {
-          added.push(mod);
-        }
-      });
-
-      const changelogLines = [
-        "# Modpack Update",
-       ""
-      ];
-
-      const MAX_TITLE_LENGTH = 56; // adjusted to align file sizes at column 60
-
-      const formatLine = (mod, prefix = "+") => {
-        const title = mod.title.length > MAX_TITLE_LENGTH ? mod.title.slice(0, MAX_TITLE_LENGTH - 3) + "..." : mod.title;
-        const paddedTitle = title.padEnd(MAX_TITLE_LENGTH, ".");
-        return `${prefix} ${paddedTitle} ${formatFileSize(mod.file_size)}`;
-      };
-
-      if (added.length) {
-        changelogLines.push("## Added Mods");
-        added.forEach((mod) => {
-          if (mod.title) {
-            changelogLines.push(formatLine(mod, "+"));
-          }
-        });
-      }
-
-      if (removed.length) {
-        changelogLines.push("", "## Removed Mods");
-        removed.forEach((mod) => {
-          if (mod.title) {
-            changelogLines.push(formatLine(mod, "-"));
-          }
-        });
-      }
-
-      const oldModpackSize = modList1.reduce((total, mod) => {
-        const size = Number(mod.file_size);
-        return isNaN(size) ? total : total + size;
-      }, 0);
-
-      const newModpackSize = modList2.reduce((total, mod) => {
-        const size = Number(mod.file_size);
-        return isNaN(size) ? total : total + size;
-      }, 0);
-
-      const sizeDifference = newModpackSize - oldModpackSize;
-      const sizeDifferenceSign = sizeDifference >= 0 ? 'increase' : 'decrease';
-      const absSizeDifference = Math.abs(sizeDifference);
-      const sortedMods = [...modList2].sort((a, b) => Number(b.file_size) - Number(a.file_size));
-      const topThreeMods = sortedMods.slice(0, 3);
-      const outputString = "The three biggest mods are... " +
-        topThreeMods.map((mod, index) =>
-          `${mod.title} with size ${formatFileSize(mod.file_size)}` + (index < 2 ? ', ' : '')
-        ).join(' ');
-
-
-      changelogLines.push(
-        "",
-        `The previous modpack was ${formatFileSize(oldModpackSize)} big, the new modpack is ${formatFileSize(newModpackSize)} big, it's an ${sizeDifferenceSign} of ${formatFileSize(absSizeDifference)}.`
-      );
-      changelogLines.push(outputString);
-      
-      textarea.value = changelogLines.join("\n");
     };
 
-    // Attach event listeners
-    document.getElementById("analyzeBtn").addEventListener("click", handleAnalyzeClick);
-    document.getElementById("processbtn").addEventListener("click", sendToAPI);
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+      if (beforeFiles.length === 0 || afterFiles.length === 0) {
+        alert('Please select files for both before and after modpacks');
+        return;
+      }
 
+      try {
+        const formDataToUse = new FormData();
+        beforeFiles.forEach(file => formDataToUse.append('beforeFiles', file));
+        afterFiles.forEach(file => formDataToUse.append('afterFiles', file));
+
+        const parseResponse = await fetch('/parse-modpacks', {
+          method: 'POST',
+          body: formDataToUse
+        });
+
+        if (!parseResponse.ok) {
+          throw new Error('Failed to parse modpacks');
+        }
+
+        const parseData = await parseResponse.json();
+        beforeMods = parseData.beforeMods;
+        afterMods = parseData.afterMods;
+
+        // Get Steam details for all mods
+        const allSteamIds = Array.from(new Set([
+          ...beforeMods.map(m => m.steamId),
+          ...afterMods.map(m => m.steamId)
+        ]));
+
+        const detailsResponse = await fetch('/get-mod-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ steamIds: allSteamIds })
+        });
+
+        const detailsData = await detailsResponse.json();
+        const modsDetails = new Map(
+          detailsData.mods.map(m => [m.publishedfileid, m])
+        );
+
+        // Create sets for comparison
+        const beforeIdSet = new Set(beforeMods.map(m => m.steamId));
+        const afterIdSet = new Set(afterMods.map(m => m.steamId));
+
+        const removedIds = beforeMods.filter(m => !afterIdSet.has(m.steamId));
+        const addedIds = afterMods.filter(m => !beforeIdSet.has(m.steamId));
+
+        // Display results
+        document.getElementById('beforeCount').textContent = beforeMods.length;
+        document.getElementById('afterCount').textContent = afterMods.length;
+
+        // Render removed mods
+        const removedList = document.getElementById('removedModsList');
+        if (removedIds.length === 0) {
+          removedList.innerHTML = '<em>No mods removed</em>';
+        } else {
+          removedList.innerHTML = removedIds
+            .map(mod => {
+              const details = modsDetails.get(mod.steamId);
+              const size = details ? formatFileSize(details.file_size) : 'Unknown';
+              return `
+                <div class="mod-item">
+                  <span>${mod.name || details?.title || mod.steamId}</span>
+                  <span class="mod-size">${size}</span>
+                </div>
+              `;
+            })
+            .join('');
+        }
+
+        // Render added mods
+        const addedList = document.getElementById('addedModsList');
+        if (addedIds.length === 0) {
+          addedList.innerHTML = '<em>No mods added</em>';
+        } else {
+          addedList.innerHTML = addedIds
+            .map(mod => {
+              const details = modsDetails.get(mod.steamId);
+              const size = details ? formatFileSize(details.file_size) : 'Unknown';
+              return `
+                <div class="mod-item">
+                  <span>${mod.name || details?.title || mod.steamId}</span>
+                  <span class="mod-size">${size}</span>
+                </div>
+              `;
+            })
+            .join('');
+        }
+
+        // Calculate size differences
+        const getModSize = (id) => {
+          const details = modsDetails.get(id);
+          return details ? Number(details.file_size) || 0 : 0;
+        };
+
+        const beforeTotalSize = beforeMods.reduce((sum, m) => sum + getModSize(m.steamId), 0);
+        const afterTotalSize = afterMods.reduce((sum, m) => sum + getModSize(m.steamId), 0);
+        const sizeDiff = afterTotalSize - beforeTotalSize;
+        const sizeSign = sizeDiff >= 0 ? 'increase' : 'decrease';
+        const absSizeDiff = Math.abs(sizeDiff);
+
+        const topThreeAfter = afterMods
+          .map(m => ({
+            ...m,
+            size: getModSize(m.steamId),
+            details: modsDetails.get(m.steamId)
+          }))
+          .sort((a, b) => b.size - a.size)
+          .slice(0, 3);
+
+        // Build Markdown changelog
+        const now = new Date();
+        const beforeNames = parseData.beforePackNames || [];
+        const afterNames = parseData.afterPackNames || [];
+
+        const normalizeName = (fn) => {
+          if (!fn) return '';
+          // remove prefix like "Arma 3 Preset " (case-insensitive)
+          let s = fn.replace(/Arma\s*3\s*Preset\s*/i, '');
+          // strip extension
+          s = s.replace(/\.html?$/i, '');
+          // replace underscores and dashes with spaces
+          s = s.replace(/[\-_]+/g, ' ');
+          // collapse whitespace
+          s = s.replace(/\s+/g, ' ').trim();
+          // uppercase and return
+          return s.toUpperCase();
+        };
+
+        const prettyBefore = beforeNames.map(normalizeName).filter(Boolean).join(' & ');
+        const prettyAfter = afterNames.map(normalizeName).filter(Boolean).join(' & ');
+        const packLabel = prettyBefore && prettyAfter ? `${prettyBefore} -> ${prettyAfter}` : (prettyAfter || prettyBefore || 'Modpack Update');
+        const header = `## ${packLabel}`;
+
+        const stats = [
+          `- **Total Mods Before:** ${beforeMods.length}`,
+          `- **Total Mods After:** ${afterMods.length}`,
+          `- **Mods Added:** ${addedIds.length}`,
+          `- **Mods Removed:** ${removedIds.length}`,
+          `- **Before Total Size:** ${formatFileSize(beforeTotalSize)}`,
+          `- **After Total Size:** ${formatFileSize(afterTotalSize)}`,
+          `- **Size Change:** ${sizeSign} of ${formatFileSize(absSizeDiff)}`,
+        ];
+
+        const MAX_TITLE_LENGTH = 56;
+        const buildListSection = (title, list) => {
+          if (!list.length) return `### ${title} (0)\n\n_No items_\n\n`;
+          const header = `### ${title} (${list.length})\n\n`;
+          const lines = list.map(mod => {
+            const details = modsDetails.get(mod.steamId);
+            let modTitle = details?.title || mod.name || mod.steamId;
+            const size = details ? formatFileSize(details.file_size) : 'Unknown';
+            if (modTitle.length > MAX_TITLE_LENGTH) modTitle = modTitle.slice(0, MAX_TITLE_LENGTH - 3) + '...';
+            const padded = modTitle.padEnd(MAX_TITLE_LENGTH, '.');
+            return `${padded} ${size}`;
+          });
+          return header + lines.join('\n') + '\n\n';
+        };
+
+        const escapeMarkdown = (s) => {
+          return String(s).replace(/([\\`*_{}\[\]()#+\-.!])/g, '\\$1');
+        };
+
+        // Build additions/removals as diff code blocks (plain text table rows inside)
+        const buildDiffSection = (title, list, sign) => {
+          if (!list.length) return `### ${title} (0)\n\n_No items_\n\n`;
+          const lines = list.map(mod => {
+            const details = modsDetails.get(mod.steamId);
+            let modTitle = details?.title || mod.name || mod.steamId;
+            const size = details ? formatFileSize(details.file_size) : 'Unknown';
+            if (modTitle.length > MAX_TITLE_LENGTH) modTitle = modTitle.slice(0, MAX_TITLE_LENGTH - 3) + '...';
+            const padded = modTitle.padEnd(MAX_TITLE_LENGTH, '.');
+            return `${sign} ${padded} ${size}`;
+          });
+          return `### ${title} (${list.length})\n\n` + '```diff\n' + lines.join('\n') + '\n```\n\n';
+        };
+
+        const addedSection = buildDiffSection('Additions', addedIds, '+');
+        const removedSection = buildDiffSection('Removals', removedIds, '-');
+
+        const topThreeSection = topThreeAfter.length ?
+          `### Top ${topThreeAfter.length} Largest Mods in After\n\n` + topThreeAfter.map((m, i) => {
+            const title = m.details?.title || m.name || m.steamId;
+            return `${i + 1}. ${escapeMarkdown(title)} — **${formatFileSize(m.size)}**`;
+          }).join('\n') + '\n' : '';
+
+        const md = [header, '', ...stats, '', addedSection, removedSection, topThreeSection].join('\n');
+
+        document.getElementById('changelog').value = md;
+
+        // Copy button handler
+        document.getElementById('copyBtn').onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(document.getElementById('changelog').value);
+            alert('Markdown copied to clipboard');
+          } catch (err) {
+            console.error('Copy failed', err);
+            alert('Copy failed: ' + err.message);
+          }
+        };
+        document.getElementById('resultsSection').style.display = 'block';
+        window.scrollTo(0, document.getElementById('resultsSection').offsetTop - 100);
+
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error analyzing modpacks: ' + error.message);
+      }
+    });
   </script>
 </body>
 
