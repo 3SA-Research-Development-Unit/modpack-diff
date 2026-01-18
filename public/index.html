@@ -301,19 +301,28 @@
         const removedIds = beforeMods.filter(m => !afterIdSet.has(m.steamId));
         const addedIds = afterMods.filter(m => !beforeIdSet.has(m.steamId));
 
+        // Compute sizes from fetched details and sort lists (largest first)
+        const computeSize = (m) => {
+          const d = modsDetails.get(m.steamId);
+          return d ? Number(d.file_size) || 0 : 0;
+        };
+
+        const sortedAdded = [...addedIds].map(m => ({ ...m, size: computeSize(m) })).sort((a,b) => b.size - a.size);
+        const sortedRemoved = [...removedIds].map(m => ({ ...m, size: computeSize(m) })).sort((a,b) => b.size - a.size);
+
         // Display results
         document.getElementById('beforeCount').textContent = beforeMods.length;
         document.getElementById('afterCount').textContent = afterMods.length;
 
-        // Render removed mods
+        // Render removed mods (sorted by size desc)
         const removedList = document.getElementById('removedModsList');
         if (removedIds.length === 0) {
           removedList.innerHTML = '<em>No mods removed</em>';
         } else {
-          removedList.innerHTML = removedIds
+          removedList.innerHTML = sortedRemoved
             .map(mod => {
               const details = modsDetails.get(mod.steamId);
-              const size = details ? formatFileSize(details.file_size) : 'Unknown';
+              const size = details ? formatFileSize(details.file_size) : formatFileSize(mod.size);
               return `
                 <div class="mod-item">
                   <span>${mod.name || details?.title || mod.steamId}</span>
@@ -324,15 +333,15 @@
             .join('');
         }
 
-        // Render added mods
+        // Render added mods (sorted by size desc)
         const addedList = document.getElementById('addedModsList');
         if (addedIds.length === 0) {
           addedList.innerHTML = '<em>No mods added</em>';
         } else {
-          addedList.innerHTML = addedIds
+          addedList.innerHTML = sortedAdded
             .map(mod => {
               const details = modsDetails.get(mod.steamId);
-              const size = details ? formatFileSize(details.file_size) : 'Unknown';
+              const size = details ? formatFileSize(details.file_size) : formatFileSize(mod.size);
               return `
                 <div class="mod-item">
                   <span>${mod.name || details?.title || mod.steamId}</span>
@@ -363,6 +372,8 @@
           }))
           .sort((a, b) => b.size - a.size)
           .slice(0, 3);
+
+        // (sorting already done earlier)
 
         // Build Markdown changelog
         const now = new Date();
@@ -431,8 +442,8 @@
           return `### ${title} (${list.length})\n\n` + '```diff\n' + lines.join('\n') + '\n```\n\n';
         };
 
-        const addedSection = buildDiffSection('Additions', addedIds, '+');
-        const removedSection = buildDiffSection('Removals', removedIds, '-');
+        const addedSection = buildDiffSection('Additions', sortedAdded, '+');
+        const removedSection = buildDiffSection('Removals', sortedRemoved, '-');
 
         const topThreeSection = topThreeAfter.length ?
           `### Top ${topThreeAfter.length} Largest Mods in After\n\n` + topThreeAfter.map((m, i) => {
